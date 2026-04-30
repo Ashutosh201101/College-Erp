@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Manage Students{% endblock %}
+{% block content %}
+<div class="page-header"><h1>Student Management</h1><p>All registered students</p></div>
+<div class="card">
+  <div class="card-header">👥 Students ({{ students|length }})</div>
+  <table>
+    <tr><th>Roll No.</th><th>Name</th><th>Email</th><th>Branch</th><th>Year</th><th>Status</th></tr>
+    {% for s in students %}
+    <tr>
+      <td><strong>{{ s.roll_no }}</strong></td>
+      <td>{{ s.name }}</td>
+      <td>{{ s.email }}</td>
+      <td><span class="badge badge-blue">{{ s.branch }}</span></td>
+      <td>{{ s.year }}</td>
+      <td><span class="badge badge-green">Active</span></td>
+    </tr>
+    {% endfor %}
+  </table>
+</div>
+{% endblock %}

@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}Student Dashboard{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>Welcome, {{ user.name }}</h1>
+  <p>{{ user.roll_no }} &nbsp;|&nbsp; {{ user.branch }} &nbsp;|&nbsp; {{ user.year }}{% if user.year==2 %}nd{% else %}th{% endif %} Year &nbsp;|&nbsp; IILM University, Greater Noida</p>
+</div>
+
+<div class="stats-grid">
+  <div class="stat-card">
+    <div class="stat-num">{{ cgpa }}</div>
+    <div class="stat-label">CGPA</div>
+  </div>
+  <div class="stat-card green">
+    <div class="stat-num">{{ grades|length }}</div>
+    <div class="stat-label">Subjects Enrolled</div>
+  </div>
+  <div class="stat-card {% if fees and fees.status=='Paid' %}green{% else %}red{% endif %}">
+    <div class="stat-num">{% if fees and fees.status=='Paid' %}✓{% else %}!{% endif %}</div>
+    <div class="stat-label">Fee Status</div>
+  </div>
+  <div class="stat-card orange">
+    <div class="stat-num">92%</div>
+    <div class="stat-label">Attendance</div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">📝 Academic Performance</div>
+  <table>
+    <tr><th>Subject</th><th>Code</th><th>Credits</th><th>Marks / 100</th><th>Grade</th></tr>
+    {% for g in grades %}
+    <tr>
+      <td>{{ g.name }}</td>
+      <td>{{ g.code }}</td>
+      <td>{{ g.credits }}</td>
+      <td>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <div style="background:#e8edf5;border-radius:4px;height:8px;width:80px;overflow:hidden;">
+            <div style="background:{% if g.marks>=80 %}#1d8348{% elif g.marks>=60 %}#2E75B6{% else %}#9E0F00{% endif %};height:100%;width:{{ g.marks }}%;"></div>
+          </div>
+          <span>{{ g.marks }}</span>
+        </div>
+      </td>
+      <td>
+        <span class="badge {% if g.grade in ['A+','A'] %}badge-green{% elif g.grade in ['B+','B'] %}badge-blue{% else %}badge-orange{% endif %}">
+          {{ g.grade }}
+        </span>
+      </td>
+    </tr>
+    {% endfor %}
+  </table>
+</div>
+
+<div class="card">
+  <div class="card-header">💰 Fee Status</div>
+  {% if fees %}
+  <table>
+    <tr><th>Amount</th><th>Due Date</th><th>Status</th></tr>
+    <tr>
+      <td>₹{{ "%.0f"|format(fees.amount) }}</td>
+      <td>{{ fees.due_date }}</td>
+      <td><span class="badge {% if fees.status=='Paid' %}badge-green{% else %}badge-red{% endif %}">{{ fees.status }}</span></td>
+    </tr>
+  </table>
+  {% else %}
+  <p style="color:#888;font-size:13px;">No fee record found.</p>
+  {% endif %}
+</div>
+{% endblock %}

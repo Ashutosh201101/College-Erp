@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Fee Management{% endblock %}
+{% block content %}
+<div class="page-header"><h1>Fee Management</h1><p>Track and update student fee status</p></div>
+<div class="card">
+  <div class="card-header">💰 Fee Records</div>
+  <table>
+    <tr><th>Roll No.</th><th>Student Name</th><th>Amount</th><th>Due Date</th><th>Status</th><th>Action</th></tr>
+    {% for f in fees %}
+    <tr>
+      <td><strong>{{ f.roll_no }}</strong></td>
+      <td>{{ f.name }}</td>
+      <td>₹{{ "%.0f"|format(f.amount) }}</td>
+      <td>{{ f.due_date }}</td>
+      <td><span class="badge {% if f.status=='Paid' %}badge-green{% else %}badge-red{% endif %}">{{ f.status }}</span></td>
+      <td>
+        <form method="POST" action="{{ url_for('update_fee', fee_id=f.id) }}" style="display:inline;">
+          <select name="status" style="padding:4px 6px;font-size:11px;border:1px solid #dde;border-radius:4px;">
+            <option {% if f.status=='Paid' %}selected{% endif %}>Paid</option>
+            <option {% if f.status=='Pending' %}selected{% endif %}>Pending</option>
+          </select>
+          <button type="submit" class="btn btn-primary" style="padding:4px 10px;font-size:11px;margin-left:4px;">Update</button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </table>
+</div>
+{% endblock %}

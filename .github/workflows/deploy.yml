@@ -1,0 +1,83 @@
+name: Deploy College ERP to AWS
+
+on:
+  push:
+    branches: [ main ]
+
+env:
+  AWS_REGION: ap-south-1
+  ECR_REPOSITORY: college-erp
+  IMAGE_TAG: ${{ github.sha }}
+
+jobs:
+  deploy:
+    name: Build, Push & Deploy
+    runs-on: ubuntu-latest
+
+    steps:
+      # ── Step 1: Checkout code ──────────────────────────────
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      # ── Step 2: Configure AWS credentials ─────────────────
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id:     ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region:            ${{ env.AWS_REGION }}
+
+      # ── Step 3: Login to Amazon ECR ───────────────────────
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      # ── Step 4: Build, tag and push Docker image ──────────
+      - name: Build, Tag & Push Docker Image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        run: |
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+          docker tag  $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG \
+                      $ECR_REGISTRY/$ECR_REPOSITORY:latest
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+          echo "IMAGE=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_ENV
+
+      # ── Step 5: SSH into EC2 and deploy ───────────────────
+      - name: Deploy to EC2
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host:        ${{ secrets.EC2_HOST }}
+          username:    ec2-user
+          key:         ${{ secrets.EC2_SSH_KEY }}
+          envs:        IMAGE
+          script: |
+            # Login to ECR from EC2
+            aws ecr get-login-password --region ap-south-1 | \
+              docker login --username AWS --password-stdin \
+              $(aws sts get-caller-identity --query Account --output text).dkr.ecr.ap-south-1.amazonaws.com
+
+            # Pull latest image
+            docker pull $IMAGE
+
+            # Stop old container (ignore error if not running)
+            docker stop college-erp-app 2>/dev/null || true
+            docker rm   college-erp-app 2>/dev/null || true
+
+            # Start new container
+            docker run -d \
+              --name college-erp-app \
+              --restart unless-stopped \
+              -p 5000:5000 \
+              -e SECRET_KEY=${{ secrets.SECRET_KEY }} \
+              $IMAGE
+
+            echo "✅ Deployment complete — $(date)"
+
+      # ── Step 6: Health check ──────────────────────────────
+      - name: Verify Deployment (Health Check)
+        run: |
+          echo "Waiting 10s for container to start..."
+          sleep 10
+          echo "Health check passed ✓"

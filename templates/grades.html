@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}My Grades{% endblock %}
+{% block content %}
+<div class="page-header"><h1>My Grades</h1><p>Semester-wise academic performance</p></div>
+<div class="card">
+  <div class="card-header">📝 Grade Report</div>
+  <table>
+    <tr><th>Subject</th><th>Code</th><th>Credits</th><th>Marks</th><th>Grade</th></tr>
+    {% for g in grades %}
+    <tr>
+      <td>{{ g.name }}</td>
+      <td>{{ g.code }}</td>
+      <td>{{ g.credits }}</td>
+      <td>{{ g.marks }} / 100</td>
+      <td>
+        <span class="badge {% if g.grade in ['A+','A'] %}badge-green{% elif g.grade in ['B+','B'] %}badge-blue{% else %}badge-orange{% endif %}">
+          {{ g.grade }}
+        </span>
+      </td>
+    </tr>
+    {% endfor %}
+  </table>
+  {% set total = grades|sum(attribute='marks') %}
+  {% set cgpa = (total / (grades|length * 100) * 10)|round(2) if grades else 0 %}
+  <div style="margin-top:14px;padding:12px;background:#f0f4f8;border-radius:6px;display:flex;gap:24px;">
+    <div><strong style="color:#1F3864;">CGPA:</strong> <span style="font-size:20px;font-weight:800;color:#1F3864;">{{ cgpa }}</span></div>
+    <div><strong style="color:#1F3864;">Total Marks:</strong> {{ total }} / {{ grades|length * 100 }}</div>
+    <div><strong style="color:#1F3864;">Subjects:</strong> {{ grades|length }}</div>
+  </div>
+</div>
+{% endblock %}
