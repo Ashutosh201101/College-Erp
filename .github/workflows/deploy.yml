@@ -6,9 +6,9 @@ on:
 
 env:
   AWS_REGION: us-east-1
+  ECR_REGISTRY: 238391222280.dkr.ecr.us-east-1.amazonaws.com
   ECR_REPOSITORY: college-erp
   IMAGE_TAG: latest
-  ECR_REGISTRY: 238391222280.dkr.ecr.us-east-1.amazonaws.com
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
@@ -17,28 +17,28 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # ── Step 1: Checkout code ──────────────────────────────
+      # Step 1: Checkout
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      # ── Step 2: Configure AWS credentials ─────────────────
+      # Step 2: AWS Credentials
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id:     ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region:            us-east-1
+          aws-region: us-east-1
 
-      # ── Step 3: Login to ECR ──────────────────────────────
+      # Step 3: Login to ECR
       - name: Login to Amazon ECR
         run: |
           aws ecr get-login-password --region us-east-1 | \
           docker login --username AWS --password-stdin 238391222280.dkr.ecr.us-east-1.amazonaws.com
 
-      # ── Step 4: Build & Push Docker Image ────────────────
+      # Step 4: Build & Push Image
       - name: Build, Tag & Push Docker Image
         run: |
-          echo "Building Docker image..."
+          echo "Building image..."
           docker build -t college-erp .
 
           echo "Tagging image..."
@@ -49,28 +49,27 @@ jobs:
 
           echo "IMAGE=238391222280.dkr.ecr.us-east-1.amazonaws.com/college-erp:latest" >> $GITHUB_ENV
 
-      # ── Step 5: Deploy to EC2 ─────────────────────────────
+      # Step 5: Deploy to EC2
       - name: Deploy to EC2
         uses: appleboy/ssh-action@v1.0.3
         with:
-          host:        ${{ secrets.EC2_HOST }}
-          username:    ec2-user
-          key:         ${{ secrets.EC2_SSH_KEY }}
-          envs:        IMAGE
+          host: ${{ secrets.EC2_HOST }}
+          username: ec2-user
+          key: ${{ secrets.EC2_SSH_KEY }}
+          envs: IMAGE
           script: |
-            echo "Logging into ECR..."
+            echo "Login to ECR..."
             aws ecr get-login-password --region us-east-1 | \
-            docker login --username AWS --password-stdin \
-            238391222280.dkr.ecr.us-east-1.amazonaws.com
+            docker login --username AWS --password-stdin 238391222280.dkr.ecr.us-east-1.amazonaws.com
 
-            echo "Pulling latest image..."
+            echo "Pull image..."
             docker pull $IMAGE
 
-            echo "Stopping old container..."
+            echo "Remove old container..."
             docker stop college-erp-app 2>/dev/null || true
             docker rm college-erp-app 2>/dev/null || true
 
-            echo "Starting new container..."
+            echo "Run container..."
             docker run -d \
               --name college-erp-app \
               --restart unless-stopped \
@@ -78,20 +77,20 @@ jobs:
               -e SECRET_KEY=${{ secrets.SECRET_KEY }} \
               $IMAGE
 
-            echo "Deployment complete 🚀"
+            echo "Deployment done"
 
-      # ── Step 6: Health Check ──────────────────────────────
+      # Step 6: Health Check
       - name: Health Check
         run: |
-          echo "Waiting 20 seconds..."
+          echo "Waiting 20s..."
           sleep 20
 
           STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
             http://${{ secrets.EC2_HOST }}:5000/health)
 
           if [ "$STATUS" = "200" ]; then
-            echo "App is healthy ✅"
+            echo "App is healthy"
           else
-            echo "Health check failed ❌"
+            echo "Health check failed"
             exit 1
           fi
