@@ -5,9 +5,10 @@ on:
     branches: [ main ]
 
 env:
-  AWS_REGION: ap-south-1
+  AWS_REGION: us-east-1
   ECR_REPOSITORY: college-erp
   IMAGE_TAG: ${{ github.sha }}
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true   # ✅ Fix warning
 
 jobs:
   deploy:
@@ -37,14 +38,20 @@ jobs:
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         run: |
+          echo "Building Docker image..."
           docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
-          docker tag  $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG \
-                      $ECR_REGISTRY/$ECR_REPOSITORY:latest
+
+          echo "Tagging image..."
+          docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG \
+                     $ECR_REGISTRY/$ECR_REPOSITORY:latest
+
+          echo "Pushing image to ECR..."
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+
           echo "IMAGE=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_ENV
 
-      # ── Step 5: SSH into EC2 and deploy ───────────────────
+      # ── Step 5: Deploy to EC2 ─────────────────────────────
       - name: Deploy to EC2
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -53,19 +60,19 @@ jobs:
           key:         ${{ secrets.EC2_SSH_KEY }}
           envs:        IMAGE
           script: |
-            # Login to ECR from EC2
-            aws ecr get-login-password --region ap-south-1 | \
+            echo "Logging into ECR..."
+            aws ecr get-login-password --region us-east-1 | \
               docker login --username AWS --password-stdin \
-              $(aws sts get-caller-identity --query Account --output text).dkr.ecr.ap-south-1.amazonaws.com
+              238391222280.dkr.ecr.us-east-1.amazonaws.com
 
-            # Pull latest image
+            echo "Pulling latest image..."
             docker pull $IMAGE
 
-            # Stop old container (ignore error if not running)
+            echo "Stopping old container..."
             docker stop college-erp-app 2>/dev/null || true
-            docker rm   college-erp-app 2>/dev/null || true
+            docker rm college-erp-app 2>/dev/null || true
 
-            # Start new container
+            echo "Starting new container..."
             docker run -d \
               --name college-erp-app \
               --restart unless-stopped \
@@ -73,19 +80,20 @@ jobs:
               -e SECRET_KEY=${{ secrets.SECRET_KEY }} \
               $IMAGE
 
-            echo "✅ Deployment complete — $(date)"
+            echo "Deployment complete 🚀"
 
-      # ── Step 6: ALB Health Check (UPDATED) ───────────────
+      # ── Step 6: Health Check ──────────────────────────────
       - name: ALB Health Check
         run: |
-          echo "Waiting 20s for container to start..."
+          echo "Waiting 20s for app to start..."
           sleep 20
-          echo "Checking ALB health endpoint..."
+
           STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
             http://${{ secrets.ALB_DNS }}/health)
+
           if [ "$STATUS" = "200" ]; then
-            echo "✅ Health check PASSED — HTTP $STATUS"
+            echo "Health check passed ✅"
           else
-            echo "❌ Health check FAILED — HTTP $STATUS"
+            echo "Health check failed ❌ (Status: $STATUS)"
             exit 1
           fi
