@@ -75,9 +75,17 @@ jobs:
 
             echo "✅ Deployment complete — $(date)"
 
-      # ── Step 6: Health check ──────────────────────────────
-      - name: Verify Deployment (Health Check)
+      # ── Step 6: ALB Health Check (UPDATED) ───────────────
+      - name: ALB Health Check
         run: |
-          echo "Waiting 10s for container to start..."
-          sleep 10
-          echo "Health check passed ✓"
+          echo "Waiting 20s for container to start..."
+          sleep 20
+          echo "Checking ALB health endpoint..."
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            http://${{ secrets.ALB_DNS }}/health)
+          if [ "$STATUS" = "200" ]; then
+            echo "✅ Health check PASSED — HTTP $STATUS"
+          else
+            echo "❌ Health check FAILED — HTTP $STATUS"
+            exit 1
+          fi
